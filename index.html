@@ -1,0 +1,522 @@
+<html>
+<head>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pixi.js/4.7.1/pixi.min.js"></script>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+    }
+  </style>
+</head>
+<body>
+
+<script>
+    function getRandomInt(min, max) {
+      const minValue = Math.ceil(min);
+      const maxValue = Math.floor(max);
+
+      return Math.floor(Math.random() * (maxValue - minValue)) + minValue;
+    }
+
+    function addGrass(app, resources) {
+      const grass = new PIXI.Sprite(resources.trawa.texture);
+
+      grass.anchor.x = 0;
+      grass.anchor.y = 0;
+
+      grass.position.x = 0;
+      grass.position.y = 0;
+
+      grass.scale.x = app.screen.width / grass.width;
+      grass.scale.y = app.screen.height / grass.height;
+
+      app.stage.addChild(grass);
+
+      return grass;
+    }
+
+    function addHouse(app, resources) {
+      const house = new PIXI.Sprite(resources.domek.texture);
+      const houseScale = (app.screen.width / 4) / house.width;
+
+      house.scale.x = houseScale;
+      house.scale.y = houseScale;
+
+      house.x = (app.screen.width / 2) - (house.width / 2);
+      house.y = (app.screen.height / 2) - (house.height / 2);
+
+      app.stage.addChild(house);
+
+      return house;
+    }
+
+    function addFlowers(app, resources) {
+      const house = app.actors.house;
+      const flowers = Array.from(Array(app.constants.flowerCount).keys()).map(function() { return new PIXI.Sprite(resources.kwiatek.texture)});
+
+      flowers.forEach((flower, index) => {
+        const xOptions = [getRandomInt(100, house.x), getRandomInt(house.x + house.width, app.screen.width - 100)];
+        const flowerScale = (app.screen.width / 20) / flower.width;
+
+        flower.scale.x = flowerScale;
+        flower.scale.y = flowerScale;
+        flower.x = xOptions[index % 2];
+        flower.y = getRandomInt(100, app.screen.height - 100);
+        app.stage.addChild(flower);
+      });
+
+      return flowers;
+    }
+
+    function addGhost(app, resources) {
+      const ghost = new PIXI.Sprite(resources.ghostRight.texture);
+      const ghostScale = (app.screen.width / 15) / ghost.width;
+
+      ghost.scale.x = ghostScale;
+      ghost.scale.y = ghostScale;
+
+      ghost.x = 100;
+      ghost.y = app.screen.height / 2;
+      ghost.step = 200;
+      ghost.speed = 7;
+
+      ghost.anchor.set(0.5, 0.5);
+
+      app.stage.addChild(ghost);
+
+      return ghost;
+    }
+
+    function addButtons(app, resources) {
+      const buttonUp = new PIXI.Sprite(resources.buttonUp.texture);
+      const buttonDown = new PIXI.Sprite(resources.buttonDown.texture);
+      const buttonLeft = new PIXI.Sprite(resources.buttonLeft.texture);
+      const buttonRight = new PIXI.Sprite(resources.buttonRight.texture);
+      const buttonScale = (app.screen.width / 20) / buttonLeft.width;
+
+      buttonUp.buttonMode = true;
+      buttonUp.interactive = true;
+      buttonUp.x = 200 * buttonScale;
+      buttonUp.y = window.innerHeight - (400 * buttonScale);
+      buttonUp.scale.x = buttonScale;
+      buttonUp.scale.y = buttonScale;
+      
+      app.stage.addChild(buttonUp);
+
+      buttonDown.buttonMode = true;
+      buttonDown.interactive = true;
+      buttonDown.x = 200 * buttonScale;
+      buttonDown.y = window.innerHeight - (150 * buttonScale);
+      buttonDown.scale.x = buttonScale;
+      buttonDown.scale.y = buttonScale;
+    
+      app.stage.addChild(buttonDown);
+
+      buttonLeft.buttonMode = true;
+      buttonLeft.interactive = true;
+      buttonLeft.x = 50 * buttonScale;
+      buttonLeft.y = window.innerHeight - (250 * buttonScale);
+      buttonLeft.scale.x = buttonScale;
+      buttonLeft.scale.y = buttonScale;
+      
+      app.stage.addChild(buttonLeft);
+
+      buttonRight.buttonMode = true;
+      buttonRight.interactive = true;
+      buttonRight.x = 350 * buttonScale;
+      buttonRight.y = window.innerHeight - (250 * buttonScale);
+      buttonRight.scale.x = buttonScale;
+      buttonRight.scale.y = buttonScale;
+      
+      app.stage.addChild(buttonRight);
+
+      return {
+        buttonUp,
+        buttonDown,
+        buttonLeft,
+        buttonRight,
+      }
+    }
+
+    function addScore(app, resources) {
+      const score = new PIXI.Text('0',{ fontFamily : 'Arial', fontSize: app.screen.height / 10, fill : 0xff0000, align : 'center' });
+      const scoreHandler = function(delta) {
+        score.text = (app.constants.flowerCount - app.actors.flowers.length).toString();
+      }
+
+      score.x = 20;
+      score.y = 20;
+      app.stage.addChild(score);
+
+      app.ticker.add(scoreHandler);
+      app.handlers.push(scoreHandler);
+
+      return score;
+    }
+
+    function configureGhostMovement(app, resources) {
+      const {
+        ghost,
+        buttons,
+      } = app.actors;
+      const {
+        swoosh,
+        jingle,
+      } = app.sounds;
+      const movementHandler = function(delta) {
+        if (ghost.targetX != null) {
+          if (ghost.targetDirection === 'left' && ghost.targetX < ghost.x) {
+            ghost.x -= ghost.speed * delta * (((ghost.x - ghost.targetX) / ghost.step) > .1 ? ((ghost.x - ghost.targetX) / ghost.step) : .1);
+          } else if (ghost.targetDirection === 'right' && ghost.targetX > ghost.x) {
+            ghost.x += ghost.speed * delta * (((ghost.targetX - ghost.x) / ghost.step) > .1 ? ((ghost.targetX - ghost.x) / ghost.step) : .1);
+          } else {
+            ghost.targetX = null;
+            ghost.targetDirection = null;
+          }
+        } else if (ghost.targetY != null) {
+          if (ghost.targetDirection === 'up' && ghost.targetY < ghost.y) {
+            ghost.y -= ghost.speed * delta * (((ghost.y - ghost.targetY) / ghost.step) > .1 ? ((ghost.y - ghost.targetY) / ghost.step) : .1);
+          } else if (ghost.targetDirection === 'down' && ghost.targetY > ghost.y) {
+            ghost.y += ghost.speed * delta * (((ghost.targetY - ghost.y) / ghost.step) > .1 ? ((ghost.targetY - ghost.y) / ghost.step) : .1);
+          } else {
+            ghost.targetY = null;
+            ghost.targetDirection = null;
+          }
+        }
+      }
+
+      buttons.buttonUp.on('pointerdown', function() {
+        ghost.rotation = ghost.texture === resources.ghostRight.texture ? -.34 : .34;
+        ghost.targetY = ghost.y - ghost.step;
+        ghost.targetX = null;
+        ghost.targetDirection = 'up';
+        swoosh.play();
+      });
+
+      buttons.buttonDown.on('pointerdown', function() {
+        ghost.rotation = ghost.texture === resources.ghostRight.texture ? .34 : -.34;
+        ghost.targetY = ghost.y + ghost.step;
+        ghost.targetX = null;
+        ghost.targetDirection = 'down';
+        swoosh.play();
+      });
+      
+      buttons.buttonLeft.on('pointerdown', function() {
+        ghost.texture = resources.ghostLeft.texture;
+        ghost.rotation = 0;
+        ghost.targetX = ghost.x - ghost.step;
+        ghost.targetY = null;
+        ghost.targetDirection = 'left';
+        swoosh.play();
+      });
+      
+      buttons.buttonRight.on('pointerdown', function() {
+        ghost.texture = resources.ghostRight.texture;
+        ghost.rotation = 0;
+        ghost.targetX = ghost.x + ghost.step;
+        ghost.targetY = null;
+        ghost.targetDirection = 'right';
+        swoosh.play();
+      });
+
+      app.ticker.add(movementHandler);
+      app.handlers.push(movementHandler);
+    }
+
+    function configureGhostAndFlowersCollision(app, resources) {
+      const {
+        ghost,
+        flower,
+        score,
+        flowers,
+      } = app.actors;
+      const collisionHandler = function(delta) {
+        flowers.forEach((flower, index) => {
+          if (Math.pow(Math.abs(ghost.x - flower.x), 2) + Math.pow(Math.abs(ghost.y - flower.y), 2) < Math.pow(100, 2)) {
+            flower.tint = '0xFFF000';
+            flower.scale.x = flower.scale.x * 1.2;
+            flower.scale.y = flower.scale.y * 1.2;
+            app.sounds.jingle.play();
+            flowers.splice(index, 1);
+            setTimeout(() => {
+              app.stage.removeChild(flower);
+            }, 1000);
+          }
+        });
+      }
+
+      app.ticker.add(collisionHandler);
+      app.handlers.push(collisionHandler);
+    }
+
+    function addInterior(app, resources) {
+      const interior = new PIXI.Sprite(resources.interior.texture);
+
+      interior.anchor.x = 0;
+      interior.anchor.y = 0;
+
+      interior.position.x = 0;
+      interior.position.y = 0;
+
+      interior.scale.x = app.screen.width / interior.width;
+      interior.scale.y = app.screen.height / interior.height;
+
+      app.stage.addChild(interior);
+
+      return interior;
+    }
+
+    function addPot(app, resources) {
+      const pot = new PIXI.Sprite(resources.pot.texture);
+      const potScale = (app.screen.width / 15) / pot.width;
+
+      pot.buttonMode = true;
+      pot.interactive = true;
+
+      pot.scale.x = potScale;
+      pot.scale.y = potScale;
+
+      pot.x = app.screen.width / 2;
+      pot.y = app.screen.height / 2;
+
+      app.stage.addChild(pot);
+
+      pot.on('pointerdown', function() {
+        if (app.actors.ghost && app.actors.ghost.isOnPot) {
+          const flower = new PIXI.Sprite(resources.kwiatek.texture);
+          const flowerScale = (app.screen.width / 20) / flower.width;
+
+          flower.scale.x = flowerScale;
+          flower.scale.y = flowerScale;
+          flower.x = pot.x - (pot.width / 2) + getRandomInt(1, pot.width);
+          flower.y = pot.y - (0.8 * flower.height);
+          app.stage.addChildAt(flower, 1);
+          app.actors.flowers.push(flower);
+          flower.tint = '0xFFF000';
+          flower.scale.x = flower.scale.x * 1.2;
+          flower.scale.y = flower.scale.y * 1.2;
+          app.sounds.jingle.play();
+          setTimeout(() => {
+            flower.scale.x = flower.scale.x * 0.8;
+            flower.scale.y = flower.scale.y * 0.8;
+            flower.tint = '0xFFFFFF';
+          }, 1000);
+        } else {
+          for (let i = app.actors.flowers.length - 1; i >= 0; i--) {app.stage.removeChild(app.actors.flowers[i]);};
+          app.actors.flowers = [];
+        }
+
+        app.sounds.jingle.play();
+      });
+
+      return pot;
+    }
+
+    function addTask(app, resources) {
+      const task = new PIXI.Text(app.constants.task.task, { fontFamily : 'Arial', fontSize: app.screen.height / 10, fill : 0xff0000, align : 'center' });
+      const taskHandler = function(delta) {
+        task.text = (`${app.constants.task.task} = ${app.actors.flowers.length || '?'}`).toString();
+      }
+
+      task.x = 20;
+      task.y = 20;
+      app.stage.addChild(task);
+
+      app.ticker.add(taskHandler);
+      app.handlers.push(taskHandler);
+
+      return task;
+    }
+
+    function configureGhostAndPotCollision(app, resources) {
+      const {
+        ghost,
+        pot,
+      } = app.actors;
+      const collisionHandler = function(delta) {
+        if (Math.pow(Math.abs(ghost.x - pot.x), 2) + Math.pow(Math.abs(ghost.y - pot.y), 2) < Math.pow(100, 2)) {
+          ghost.isOnPot = true;
+        } else if (ghost.isOnPot && app.actors.flowers.length !== 0) {
+          if (app.actors.flowers.length !== app.constants.task.result) {
+            app.sounds.boo.play();
+          } else {
+            app.sounds.fanfare.play();
+          }
+          
+          ghost.isOnPot = false;
+        } else {
+          ghost.isOnPot = false;
+        }
+      }
+
+      app.ticker.add(collisionHandler);
+      app.handlers.push(collisionHandler);
+    }
+
+    function setupLevel1(app, resources) {
+      app.constants = {
+        flowerCount: 12,
+      };
+      app.handlers = [];
+
+      app.sounds = {};
+      app.sounds.swoosh = new Audio(resources.swoosh.url);
+      app.sounds.jingle = new Audio(resources.jingle.url);
+      app.sounds.fanfare = new Audio(resources.fanfare.url);
+
+      app.actors = {};
+
+      app.actors.grass = addGrass(app, resources);
+      app.actors.house = addHouse(app, resources);
+      app.actors.flowers = addFlowers(app, resources);
+      app.actors.ghost = addGhost(app, resources);
+      app.actors.buttons = addButtons(app, resources);
+      app.actors.score = addScore(app, resources);
+
+      configureGhostMovement(app, resources);
+
+      configureGhostAndFlowersCollision(app, resources);
+
+      const completeHandler = function(delta) {
+        if (!app.actors.flowers.length) {
+          app.ticker.remove(completeHandler);
+          app.sounds.fanfare.play();
+
+          setTimeout(() => {
+            clearApp(app);
+            setupLevel2(app, resources);
+          }, 3000);
+        }
+      }
+      
+      app.ticker.add(completeHandler);
+    }
+
+    function setupLevel2(app, resources) {
+      const tasks = [
+        {
+          task: '15 - 7',
+          result: 8,
+        },
+        {
+          task: '4 + 2',
+          result: 6,
+        },
+        {
+          task: '8 - 3',
+          result: 5,
+        },
+        {
+          task: '3 + 7',
+          result: 10,
+        },
+        {
+          task: '10 - 4',
+          result: 6,
+        },
+        {
+          task: '2 + 3',
+          result: 5,
+        },
+        {
+          task: '4 + 4',
+          result: 8,
+        },
+        {
+          task: '5 - 3',
+          result: 2,
+        },
+        {
+          task: '8 + 3',
+          result: 11,
+        },
+        {
+          task: '1 + 4',
+          result: 5,
+        },
+        {
+          task: '7 - 4',
+          result: 3,
+        }
+      ];
+
+      app.constants = {
+        task: tasks[getRandomInt(0, tasks.length)]
+      };
+      app.handlers = [];
+
+      app.sounds = {};
+      app.sounds.swoosh = new Audio(resources.swoosh.url);
+      app.sounds.jingle = new Audio(resources.jingle.url);
+      app.sounds.good = new Audio(resources.good.url);
+      app.sounds.boo = new Audio(resources.boo.url);
+      app.sounds.fanfare = new Audio(resources.fanfare.url);
+
+      app.actors = {};
+
+      app.actors.flowers = [];
+      app.actors.interior = addInterior(app, resources);
+      app.actors.pot = addPot(app, resources);
+      app.actors.ghost = addGhost(app, resources);
+      app.actors.buttons = addButtons(app, resources);
+      app.actors.task = addTask(app, resources);
+
+      configureGhostMovement(app, resources);
+
+      configureGhostAndPotCollision(app, resources);
+
+      const completeHandler = function(delta) {
+        if (!app.actors.ghost.isOnPot && app.actors.flowers.length === app.constants.task.result) {
+          app.ticker.remove(completeHandler);
+
+          app.sounds.good.play();
+          
+          setTimeout(() => {
+            clearApp(app);
+            setupLevel1(app, resources);
+          }, 3000);
+        }
+      }
+      
+      app.ticker.add(completeHandler);
+    }
+
+    function clearApp(app) {
+      app.actors = {};
+      app.sounds = {};
+      app.constants = {};
+
+      for (let i = app.stage.children.length - 1; i >= 0; i--) {	app.stage.removeChild(app.stage.children[i]);};
+      for (let i = app.handlers.length - 1; i >= 0; i--) {	app.ticker.remove(app.handlers[i]);};
+    }
+
+    const loader = new PIXI.loaders.Loader();
+    const sprites = {};
+    const app = new PIXI.Application(window.innerWidth, window.innerHeight);
+    
+    loader
+      .add('trawa', 'trawa.png')
+      .add('domek', 'nowy-domek-gra.png')
+      .add('kwiatek', 'nowy-kwiatek-gra.png')
+      .add('buttonUp', 'button-up.png')
+      .add('buttonDown', 'button-Down.png')
+      .add('buttonLeft', 'button-Left.png')
+      .add('buttonRight', 'button-Right.png')
+      .add('ghostRight', 'ghost-right.png')
+      .add('ghostLeft', 'ghost-left.png')
+      .add('interior', 'wnetrze-domku.png')
+      .add('pot', 'dzbanek.png')
+      .add('swoosh', 'swoosh.mp3')
+      .add('jingle', 'jingle.wav')
+      .add('good', 'good.m4a')
+      .add('fanfare', 'fanfare.mp3')
+      .add('boo', 'boo.wav');
+
+    loader.load((loader, resources) => {
+      document.body.appendChild(app.view);
+
+      setupLevel1(app, resources);
+    });
+</script>
+</body>
+</html>
